@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sofia Private Chat</title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #121212;
+    color: white;
+    margin: 0; padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  header {
+    padding: 15px;
+    background: #1f1f1f;
+    text-align: center;
+    font-size: 1.2em;
+    border-bottom: 1px solid #333;
+  }
+  #chatBox {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+  }
+  .message {
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    max-width: 70%;
+    clear: both;
+  }
+  .you {
+    background-color: #007bff;
+    color: white;
+    float: right;
+  }
+  .friend {
+    background-color: #444;
+    color: white;
+    float: left;
+  }
+  #messageInput {
+    display: flex;
+    padding: 10px;
+    background: #1f1f1f;
+    border-top: 1px solid #333;
+  }
+  #messageInput input {
+    flex: 1;
+    padding: 10px;
+    font-size: 1em;
+    border: none;
+    border-radius: 5px;
+  }
+  #messageInput button {
+    margin-left: 10px;
+    padding: 10px 15px;
+    font-size: 1em;
+    background: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  Chatting with <span id="friendName"></span>
+</header>
+
+<div id="chatBox">Loading messages...</div>
+
+<div id="messageInput">
+  <input type="text" id="message" placeholder="Type your message..." autocomplete="off" />
+  <button id="sendBtn">Send</button>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import {
+    getFirestore,
+    collection,
+    doc,
+    addDoc,
+    query,
+    orderBy,
+    onSnapshot,
+    serverTimestamp,
+  } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+  // Your Firebase config - replace with yours
+  const firebaseConfig = {
+    apiKey: "AIzaSyBrrtZUDzER0acEggVlwhfL_JV5gMkmfjw",
+    authDomain: "sofiaprivatechat-bfa0e.firebaseapp.com",
+    projectId: "sofiaprivatechat-bfa0e",
+    storageBucket: "sofiaprivatechat-bfa0e.appspot.com",
+    messagingSenderId: "475737605844",
+    appId: "1:475737605844:web:4ab5640b8c822715259d41"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const playerId = localStorage.getItem("playerId");
+  const playerServer = localStorage.getItem("playerServer");
+  const friendId = localStorage.getItem("friendId");
+  const friendServer = localStorage.getItem("friendServer");
+
+  const friendNameSpan = document.getElementById("friendName");
+  const chatBox = document.getElementById("chatBox");
+  const messageInput = document.getElementById("message");
+  const sendBtn = document.getElementById("sendBtn");
+
+  if (!playerId || !playerServer || !friendId || !friendServer) {
+    chatBox.innerHTML = '<p style="color:red; padding:20px;">⚠️ Missing player or friend info. Please go back and login again.</p>';
+    throw new Error("Missing player or friend information");
+  }
+
+  friendNameSpan.textContent = friendId + " (Server " + friendServer + ")";
+
+  // Create unique chatRoomId (same for both players)
+  const chatRoomId = [playerId + "_" + playerServer, friendId + "_" + friendServer]
+    .sort()
+    .join("_vs_");
+
+  const chatCollectionRef = collection(db, "messages", chatRoomId, "chat");
+  const chatQuery = query(chatCollectionRef, orderBy("timestamp"));
+
+  // Listen for new messages
+  onSnapshot(chatQuery, (snapshot) => {
+    chatBox.innerHTML = "";
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const messageDiv = document.createElement("div");
+      messageDiv.classList.add("message");
+      messageDiv.classList.add(data.sender === playerId ? "you" : "friend");
+      const time = data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleTimeString() : "";
+      messageDiv.innerHTML = `<strong>${data.sender === playerId ? "You" : friendId}</strong><br>${data.text}<br><small>${time}</small>`;
+      chatBox.appendChild(messageDiv);
+    });
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }, (error) => {
+    chatBox.innerHTML = '<p style="color:red; padding:20px;">Error loading messages: ' + error.message + '</p>';
+  });
+
+  sendBtn.addEventListener("click", async () => {
+    const text = messageInput.value.trim();
+    if (!text) return;
+
+    try {
+      await addDoc(chatCollectionRef, {
+        sender: playerId,
+        receiver: friendId,
+        text: text,
+        timestamp: serverTimestamp()
+      });
+      messageInput.value = "";
+    } catch (error) {
+      alert("Failed to send message: " + error.message);
+    }
+  });
+
+  // Also send on pressing Enter key
+  messageInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      sendBtn.click();
+    }
+  });
+</script>
+
+</body>
+</html>
