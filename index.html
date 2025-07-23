@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sofia Private Chat - Login</title>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBrrtZUDzER0acEggVlwhfL_JV5gMkmfjw",
+      authDomain: "sofiaprivatechat-bfa0e.firebaseapp.com",
+      projectId: "sofiaprivatechat-bfa0e",
+      storageBucket: "sofiaprivatechat-bfa0e.appspot.com",
+      messagingSenderId: "475737605844",
+      appId: "1:475737605844:web:4ab5640b8c822715259d41"
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+  </script>
+
+  <style>
+    body {
+      background: #121212;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: #1f1f1f;
+      padding: 20px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      box-sizing: border-box;
+    }
+    input[type="file"] {
+      background: #2e2e2e;
+      color: white;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #preview {
+      display: block;
+      margin: 10px auto;
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 50%;
+      border: 2px solid white;
+    }
+    .info {
+      background: #2a2a2a;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
+      text-align: center;
+    }
+    .info p {
+      margin: 5px 0;
+      font-size: 14px;
+    }
+  </style>
+
+  <script>
+    // Permanent login redirect
+    const savedId = localStorage.getItem("playerId");
+    const savedServer = localStorage.getItem("playerServer");
+    const savedPic = localStorage.getItem("profilePic");
+
+    if (savedId && savedServer && savedPic) {
+      window.location.href = "chatlist.html";
+    }
+  </script>
+</head>
+<body>
+
+<div class="container">
+  <h2>Login to Sofia Private Chat</h2>
+
+  <input type="text" id="playerId" placeholder="Your MLBB ID" />
+  <input type="text" id="playerServer" placeholder="Your Server ID" />
+  <input type="file" id="profilePic" accept="image/*" />
+  <img id="preview" src="" alt="Profile Preview" />
+
+  <button id="loginBtn">Start Chat</button>
+
+  <div class="info" id="savedInfo" style="display:none;">
+    <p><strong>Your Login Info:</strong></p>
+    <p id="myInfo"></p>
+    <img id="savedPic" src="" width="80" style="border-radius:50%; margin-top:8px;" />
+  </div>
+</div>
+
+<script>
+  // Preview profile pic
+  document.getElementById("profilePic").addEventListener("change", function (e) {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        document.getElementById("preview").src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  // Show saved info (optional)
+  const savedId2 = localStorage.getItem("playerId");
+  const savedServer2 = localStorage.getItem("playerServer");
+  const savedPic2 = localStorage.getItem("profilePic");
+  if (savedId2 && savedServer2 && savedPic2) {
+    document.getElementById("savedInfo").style.display = "block";
+    document.getElementById("myInfo").textContent = `ID: ${savedId2} | Server: ${savedServer2}`;
+    document.getElementById("savedPic").src = savedPic2;
+  }
+
+  document.getElementById("loginBtn").addEventListener("click", async () => {
+    const playerId = document.getElementById("playerId").value.trim();
+    const playerServer = document.getElementById("playerServer").value.trim();
+    const profileFile = document.getElementById("profilePic").files[0];
+
+    if (!playerId || !playerServer || !profileFile) {
+      alert("Please fill in all fields and upload profile picture.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async function (e) {
+      const profileBase64 = e.target.result;
+
+      // Save user info in localStorage
+      localStorage.setItem("playerId", playerId);
+      localStorage.setItem("playerServer", playerServer);
+      localStorage.setItem("profilePic", profileBase64);
+
+      // Also save user info in Firestore 'users' collection for friend lookup
+      try {
+        await db.collection("users").doc(`${playerId}_${playerServer}`).set({
+          playerId,
+          playerServer,
+          profilePic: profileBase64,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (err) {
+        console.error("Error saving user data:", err);
+        alert("Failed to save user info to server. Try again.");
+        return;
+      }
+
+      // Redirect to chatlist
+      window.location.href = "chatlist.html";
+    };
+    reader.readAsDataURL(profileFile);
+  });
+</script>
+
+</body>
+</html>
