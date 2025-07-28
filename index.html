@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sofia Private Chat - Login</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(270deg, #111, #222, #1a1a1a);
+      background-size: 800% 800%;
+      animation: gradientShift 20s ease infinite;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+    }
+
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .login-container {
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 18px;
+      padding: 1.8rem 1.4rem;
+      max-width: 420px; /* increased width for PC */
+      width: 92%;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 70vh;
+    }
+
+    .login-container h2 {
+      font-size: 1.8rem;
+      font-weight: 600;
+      margin-bottom: 1.2rem;
+      color: #fff;
+      user-select: none;
+    }
+
+    .login-container img {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      margin-bottom: 1rem;
+      box-shadow: 0 0 10px #00ffcc66;
+      user-select: none;
+    }
+
+    .login-container input {
+      width: 100%;
+      padding: 0.65rem 1rem;
+      border-radius: 12px;
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+      outline: none;
+      user-select: text;
+    }
+
+    .login-container input::placeholder {
+      color: #aaa;
+    }
+
+    .login-container button {
+      width: 100%;
+      padding: 0.7rem;
+      border-radius: 14px;
+      border: none;
+      font-size: 1rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, #00c9a7, #007f70);
+      color: white;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      user-select: none;
+    }
+
+    .login-container button:hover {
+      background: linear-gradient(135deg, #007f70, #00c9a7);
+    }
+
+    #errorMsg {
+      color: #ff7f9a;
+      font-size: 0.85rem;
+      margin-top: 0.8rem;
+      min-height: 1.2em;
+      user-select: none;
+    }
+
+    @media (max-width: 480px) {
+      .login-container {
+        padding: 1.4rem 1rem;
+        max-width: 94%;
+        border-radius: 14px;
+        min-height: auto;
+      }
+
+      .login-container h2 {
+        font-size: 1.3rem;
+      }
+
+      .login-container input,
+      .login-container button {
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="login-container" role="main" aria-label="Login form for Sofia Private Chat">
+    <h2>Sofia Private Chat</h2>
+    <img id="avatar" src="https://robohash.org/default?set=set3" alt="User Avatar" />
+    <input type="text" id="playerId" placeholder="Enter your MLBB ID" autocomplete="off" />
+    <input type="text" id="playerServer" placeholder="Enter your Server ID" autocomplete="off" />
+    <button id="loginBtn">Start Chatting</button>
+    <div id="errorMsg"></div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import {
+      getFirestore, doc, setDoc, getDoc
+    } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBrrtZUDzER0acEggVlwhfL_JV5gMkmfjw",
+      authDomain: "sofiaprivatechat-bfa0e.firebaseapp.com",
+      projectId: "sofiaprivatechat-bfa0e",
+      storageBucket: "sofiaprivatechat-bfa0e.appspot.com",
+      messagingSenderId: "475737605844",
+      appId: "1:475737605844:web:4ab5640b8c822715259d41"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const playerIdInput = document.getElementById("playerId");
+    const playerServerInput = document.getElementById("playerServer");
+    const loginBtn = document.getElementById("loginBtn");
+    const errorMsg = document.getElementById("errorMsg");
+    const avatarImg = document.getElementById("avatar");
+
+    function updateAvatar() {
+      const playerId = playerIdInput.value.trim() || "default";
+      avatarImg.src = `https://robohash.org/${encodeURIComponent(playerId)}?set=set3`;
+    }
+
+    playerIdInput.addEventListener("input", updateAvatar);
+
+    loginBtn.addEventListener("click", async () => {
+      const playerId = playerIdInput.value.trim();
+      const playerServer = playerServerInput.value.trim();
+      const profilePic = avatarImg.src;
+
+      if (!playerId || !playerServer) {
+        errorMsg.textContent = "⚠ Please fill all fields.";
+        return;
+      }
+
+      const userKey = `${playerId}_${playerServer}`;
+
+      try {
+        const userDocRef = doc(db, "users", userKey);
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (!userDocSnap.exists()) {
+          await setDoc(userDocRef, {
+            mlbbId: playerId,
+            serverId: playerServer,
+            profilePic,
+            friends: [],
+            requests: []
+          });
+        }
+
+        localStorage.setItem("playerId", playerId);
+        localStorage.setItem("playerServer", playerServer);
+        localStorage.setItem("profile", profilePic);
+
+        window.location.href = "chatlist.html";
+      } catch (error) {
+        errorMsg.textContent = "❌ Firebase error: " + error.message;
+      }
+    });
+
+    window.addEventListener("load", () => {
+      const savedId = localStorage.getItem("playerId");
+      const savedServer = localStorage.getItem("playerServer");
+      const savedProfile = localStorage.getItem("profile");
+
+      if (savedId) {
+        playerIdInput.value = savedId;
+        updateAvatar();
+      }
+      if (savedServer) playerServerInput.value = savedServer;
+    });
+  </script>
+</body>
+</html>
